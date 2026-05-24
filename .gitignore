@@ -1,0 +1,10 @@
+docs/
+Reference/
+bin/
+obj/
+.vs/
+.superpowers/
+TestResults/
+dist/
+*.user
+*.suo

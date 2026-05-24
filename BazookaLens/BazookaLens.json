@@ -1,0 +1,12 @@
+{
+  "Author": "bloooowfish",
+  "Name": "Bazooka Lens",
+  "Punchline": "Native high-resolution screenshots with region, hotkey, and ReShade post-effects support.",
+  "Description": "Adds /blens commands and a settings window for scaled full-frame or region screenshots, UI hide/restore, custom save paths, keyboard shortcuts, and ReShade post-effects capture when available.",
+  "ApplicableVersion": "any",
+  "Tags": [
+    "screenshot",
+    "capture",
+    "diagnostics"
+  ]
+}
