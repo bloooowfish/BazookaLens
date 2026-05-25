@@ -12,10 +12,8 @@ $ReleaseVersionPattern = '^\d+\.\d+\.\d+\.\d+$'
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $ProjectPath = Join-Path $RepoRoot 'BazookaLens\BazookaLens.csproj'
 $BuiltPluginDir = Join-Path $RepoRoot 'BazookaLens\bin\x64\Release\BazookaLens'
-$BuiltManifestPath = Join-Path $BuiltPluginDir 'BazookaLens.json'
 $BuiltZipPath = Join-Path $BuiltPluginDir 'latest.zip'
 $DistDir = Join-Path $RepoRoot 'dist'
-$RepoJsonPath = Join-Path $RepoRoot 'repo.json'
 
 function Fail {
     param([Parameter(Mandatory = $true)][string] $Message)
@@ -123,87 +121,6 @@ function Set-ProjectVersion {
     $project.Save($ProjectPath)
 }
 
-function Read-JsonFile {
-    param([Parameter(Mandatory = $true)][string] $Path)
-
-    if (-not (Test-Path $Path)) {
-        Fail "Missing JSON file: $Path"
-    }
-
-    Get-Content -Raw $Path | ConvertFrom-Json
-}
-
-function Get-GitHubZipDownloadCount {
-    $counts = & gh api "repos/$RepoOwner/$RepoName/releases" --paginate --jq '.[].assets[]? | select(.name | endswith(".zip")) | .download_count'
-    if ($LASTEXITCODE -ne 0) {
-        Fail 'Failed to read GitHub release download counts.'
-    }
-
-    $total = 0
-    foreach ($count in $counts) {
-        if (-not [string]::IsNullOrWhiteSpace($count)) {
-            $total += [int] $count
-        }
-    }
-
-    return $total
-}
-
-function Write-RepoJson {
-    param(
-        [Parameter(Mandatory = $true)]
-        [object] $Manifest,
-
-        [Parameter(Mandatory = $true)]
-        [int] $DownloadCount,
-
-        [Parameter(Mandatory = $true)]
-        [string] $AssetName
-    )
-
-    $tagName = "v$Version"
-    $downloadUrl = "https://github.com/$RepoOwner/$RepoName/releases/download/$tagName/$AssetName"
-    $now = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds().ToString()
-
-    $entry = [ordered]@{
-        Author = $Manifest.Author
-        Name = $Manifest.Name
-        InternalName = $Manifest.InternalName
-        AssemblyVersion = $Version
-        TestingAssemblyVersion = $null
-        Description = $Manifest.Description
-        Punchline = $Manifest.Punchline
-        ApplicableVersion = $Manifest.ApplicableVersion
-        Tags = @($Manifest.Tags)
-        RepoUrl = "https://github.com/$RepoOwner/$RepoName"
-        DalamudApiLevel = $Manifest.DalamudApiLevel
-        TestingDalamudApiLevel = $null
-        IsHide = $false
-        IsTestingExclusive = $false
-        DownloadCount = $DownloadCount
-        DownloadLinkInstall = $downloadUrl
-        DownloadLinkTesting = $null
-        DownloadLinkUpdate = $downloadUrl
-        LastUpdate = $now
-    }
-
-    if ($null -eq $entry.InternalName -or [string]::IsNullOrWhiteSpace([string] $entry.InternalName)) {
-        $entry.InternalName = $RepoName
-    }
-
-    if ($null -eq $entry.ApplicableVersion -or [string]::IsNullOrWhiteSpace([string] $entry.ApplicableVersion)) {
-        $entry.ApplicableVersion = 'any'
-    }
-
-    if ($null -eq $entry.DalamudApiLevel) {
-        $entry.DalamudApiLevel = 15
-    }
-
-    $json = ConvertTo-Json -InputObject @($entry) -Depth 8
-    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-    [System.IO.File]::WriteAllText($RepoJsonPath, $json + [Environment]::NewLine, $utf8NoBom)
-}
-
 function Copy-ReleaseArtifact {
     param([Parameter(Mandatory = $true)][string] $AssetName)
 
@@ -231,13 +148,10 @@ Set-ProjectVersion -Value $Version
 Invoke-Checked -FilePath 'dotnet' -Arguments @('test', '.\BazookaLens.Tests\BazookaLens.Tests.csproj', '-c', 'Debug', '--no-restore')
 Invoke-Checked -FilePath 'dotnet' -Arguments @('build', $ProjectPath, '-c', 'Release', '-p:Platform=x64')
 $artifactPath = Copy-ReleaseArtifact -AssetName $assetName
-$manifest = Read-JsonFile -Path $BuiltManifestPath
-$downloadCount = Get-GitHubZipDownloadCount
-Write-RepoJson -Manifest $manifest -DownloadCount $downloadCount -AssetName $assetName
 
 Invoke-Checked -FilePath 'git' -Arguments @('config', 'user.name', $RepoOwner)
 Invoke-Checked -FilePath 'git' -Arguments @('config', 'user.email', '285025450+bloooowfish@users.noreply.github.com')
-Invoke-Checked -FilePath 'git' -Arguments @('add', '--', $ProjectPath, $RepoJsonPath)
+Invoke-Checked -FilePath 'git' -Arguments @('add', '--', $ProjectPath)
 Invoke-Checked -FilePath 'git' -Arguments @('commit', '-m', "release: $Version")
 Invoke-Checked -FilePath 'git' -Arguments @('tag', $tagName)
 Invoke-Checked -FilePath 'git' -Arguments @('push', 'origin', $tagName)
@@ -257,4 +171,3 @@ Invoke-Checked -FilePath 'git' -Arguments @('push', 'origin', 'main')
 
 Write-Host "Released Bazooka Lens $Version from GitHub Actions."
 Write-Host "Artifact: $artifactPath"
-Write-Host "DownloadCount snapshot: $downloadCount"

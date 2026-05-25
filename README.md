@@ -7,7 +7,7 @@ It can temporarily resize the game render target, hide the game UI, capture the 
 ## Custom repository URL
 
 ```text
-https://raw.githubusercontent.com/bloooowfish/BazookaLens/refs/heads/main/repo.json
+https://raw.githubusercontent.com/bloooowfish/MyPluginMaster/refs/heads/main/repo.json
 ```
 
 ## Quick Use

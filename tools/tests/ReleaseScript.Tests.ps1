@@ -4,7 +4,6 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $releaseScript = Join-Path $repoRoot 'tools\Release.ps1'
 $githubBuildScript = Join-Path $repoRoot 'tools\Build-GitHubRelease.ps1'
 $releaseWorkflow = Join-Path $repoRoot '.github\workflows\release.yml'
-$repoJson = Join-Path $repoRoot 'repo.json'
 $readme = Join-Path $repoRoot 'README.md'
 
 function Invoke-ReleaseScript {
@@ -112,10 +111,6 @@ if (-not (Test-Path $githubBuildScript)) {
     throw "Missing GitHub Actions build script: $githubBuildScript"
 }
 
-if (-not (Test-Path $repoJson)) {
-    throw "Missing custom repository manifest: $repoJson"
-}
-
 if (-not (Test-Path $readme)) {
     throw "Missing README: $readme"
 }
@@ -131,15 +126,14 @@ Assert-Match -Actual $githubBuildScriptText -Pattern 'release'',\s*''create' -Me
 Assert-Match -Actual $githubBuildScriptText -Pattern "'checkout', 'main'" -Message 'GitHub build script should commit from the main branch, not detached HEAD.'
 Assert-Match -Actual $githubBuildScriptText -Pattern 'Assert-TagAvailable' -Message 'GitHub build script should re-check tag availability in CI.'
 Assert-Match -Actual $githubBuildScriptText -Pattern 'Assert-GitHubReleaseAvailable' -Message 'GitHub build script should re-check release availability in CI.'
-Assert-Match -Actual $githubBuildScriptText -Pattern 'ConvertTo-Json\s+-InputObject\s+@\(\$entry\)' -Message 'GitHub build script should preserve repo.json as a JSON array when publishing one plugin.'
-Assert-NotMatch -Actual $githubBuildScriptText -Pattern '@\(\$entry\)\s*\|\s*ConvertTo-Json' -Message 'GitHub build script should not pipe a single repo entry into ConvertTo-Json.'
+Assert-NotMatch -Actual $githubBuildScriptText -Pattern 'RepoJsonPath|Write-RepoJson|Get-GitHubZipDownloadCount|DownloadCount|ConvertTo-Json' -Message 'GitHub build script should not generate plugin-store repo.json; MyPluginMaster owns repo metadata.'
+Assert-NotMatch -Actual $githubBuildScriptText -Pattern 'git'',\s*''add'',\s*''--'',\s*\$ProjectPath,\s*\$RepoJsonPath' -Message 'GitHub build script should only commit project version metadata.'
 
-$repoJsonText = Get-Content -Raw $repoJson
-Assert-Match -Actual $repoJsonText.TrimStart() -Pattern '^\[' -Message 'Custom repository manifest should be a JSON array of plugin store entries.'
+Assert-Equal -Actual (Test-Path (Join-Path $repoRoot 'repo.json')) -Expected $false -Message 'Plugin repository should not keep a standalone repo.json; MyPluginMaster owns the custom repository manifest.'
 
 $readmeText = Get-Content -Raw $readme
-Assert-Match -Actual $readmeText -Pattern 'https://raw\.githubusercontent\.com/bloooowfish/BazookaLens/refs/heads/main/repo\.json' -Message 'README should publish the cache-resistant custom repository URL.'
-Assert-NotMatch -Actual $readmeText -Pattern 'https://raw\.githubusercontent\.com/bloooowfish/BazookaLens/main/repo\.json' -Message 'README should avoid the stale-prone raw GitHub branch shorthand URL.'
+Assert-Match -Actual $readmeText -Pattern 'https://raw\.githubusercontent\.com/bloooowfish/MyPluginMaster/refs/heads/main/repo\.json' -Message 'README should publish the master custom repository URL.'
+Assert-NotMatch -Actual $readmeText -Pattern 'https://raw\.githubusercontent\.com/bloooowfish/BazookaLens/.+repo\.json' -Message 'README should not publish a standalone plugin repository URL.'
 
 $releaseWorkflowText = Get-Content -Raw $releaseWorkflow
 Assert-Match -Actual $releaseWorkflowText -Pattern 'workflow_dispatch' -Message 'Release workflow should be manually triggerable.'
