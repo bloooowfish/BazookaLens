@@ -4,6 +4,9 @@ using System.Numerics;
 using BazookaLens.Capture;
 using BazookaLens.UI;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface;
+using Dalamud.Interface.Components;
+using Dalamud.Interface.ImGuiFileDialog;
 using Dalamud.Interface.Windowing;
 
 namespace BazookaLens.Windows;
@@ -17,6 +20,8 @@ internal sealed class BazookaLensWindow : Window, IDisposable
 
     private static readonly Vector4 SectionTitleColor = new(0.42f, 0.78f, 1f, 1f);
     private static readonly Vector4 ErrorTextColor = new(1f, 0.35f, 0.35f, 1f);
+    private static readonly Vector4 RegionActiveTextColor = new(0.35f, 0.9f, 0.58f, 1f);
+    private static readonly Vector4 RegionInactiveTextColor = new(0.72f, 0.72f, 0.72f, 1f);
     private static readonly Vector2 InitialWindowSize = new(420, 560);
     private static readonly Vector2 ShootButtonSize = new(120, 32);
 
@@ -33,6 +38,7 @@ internal sealed class BazookaLensWindow : Window, IDisposable
     private readonly Func<Task> shootAsync;
     private readonly CaptureUiState captureUiState;
     private readonly CapturePathService pathService;
+    private readonly FileDialogManager folderDialogManager = new();
     private readonly RegionOverlayWindow regionOverlayWindow;
     private readonly ShortcutCaptureOverlayWindow shortcutOverlayWindow;
     private string customScaleText;
@@ -47,7 +53,7 @@ internal sealed class BazookaLensWindow : Window, IDisposable
         CapturePathService pathService,
         RegionOverlayWindow regionOverlayWindow,
         ShortcutCaptureOverlayWindow shortcutOverlayWindow)
-        : base("Bazooka Lens###BazookaLensMain")
+        : base("Bazooka Lens###BazookaLensMain", ImGuiWindowFlags.None, forceMainWindow: true)
     {
         this.configuration = configuration;
         this.shootAsync = shootAsync;
@@ -85,6 +91,7 @@ internal sealed class BazookaLensWindow : Window, IDisposable
         this.DrawShortcutControls();
         ImGui.Separator();
         this.DrawShootControls();
+        this.folderDialogManager.Draw();
 
         this.captureUiState.IsTextInputActive = textInputActive;
     }
@@ -126,14 +133,33 @@ internal sealed class BazookaLensWindow : Window, IDisposable
     private void DrawSavePathControls(ref bool textInputActive)
     {
         DrawSectionTitle("Save Path");
-        ImGui.SetNextItemWidth(-1);
-        if (ImGui.InputText("##SavePath", ref this.savePathDraft, SavePathInputLength))
-            this.savePathError = null;
-        textInputActive |= ImGui.IsItemActive();
 
-        if (ImGui.Button("Apply##SavePath"))
-            this.ApplySavePathDraft();
+        var browseButtonSize = new Vector2(ImGui.GetFrameHeight(), ImGui.GetFrameHeight());
+        var inputWidth = Math.Max(
+            1f,
+            ImGui.GetContentRegionAvail().X - browseButtonSize.X - ImGui.GetStyle().ItemSpacing.X);
+
+        ImGui.SetNextItemWidth(inputWidth);
+        var submitted = ImGui.InputText(
+            "##SavePath",
+            ref this.savePathDraft,
+            SavePathInputLength,
+            ImGuiInputTextFlags.EnterReturnsTrue);
+        var edited = ImGui.IsItemEdited();
+        var commitDraft = submitted || ImGui.IsItemDeactivatedAfterEdit();
+        textInputActive |= ImGui.IsItemActive();
+        if (edited)
+            this.savePathError = null;
+
         ImGui.SameLine();
+        if (ImGuiComponents.IconButton("SelectSavePathFolder", FontAwesomeIcon.FolderOpen, browseButtonSize))
+            this.OpenSavePathFolderDialog();
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip("Select Folder");
+
+        if (commitDraft)
+            this.CommitSavePathDraft();
+
         if (ImGui.Button("Use Default##SavePath"))
         {
             this.configuration.SaveDirectory = null;
@@ -154,19 +180,24 @@ internal sealed class BazookaLensWindow : Window, IDisposable
     {
         DrawSectionTitle("Region");
         var (viewportWidth, viewportHeight) = GetViewportSize();
+        var regionEnabled = this.configuration.RegionEnabled;
 
-        if (ImGui.Button("Full Frame"))
+        if (ImGui.Checkbox("Use Region", ref regionEnabled))
         {
-            this.configuration.Region = CaptureRegion.Full(viewportWidth, viewportHeight);
-            this.configuration.RegionEnabled = false;
-            this.configuration.Save();
+            if (regionEnabled)
+                this.EnableRegionFromToggle(viewportWidth, viewportHeight);
+            else
+                this.DisableRegion();
         }
 
         ImGui.SameLine();
-        if (ImGui.Button("Use Region"))
-            this.ResetRegionFromViewport();
+        ImGui.TextColored(
+            this.configuration.RegionEnabled ? RegionActiveTextColor : RegionInactiveTextColor,
+            this.configuration.RegionEnabled ? "Region capture active" : "Full frame capture");
 
-        ImGui.SameLine();
+        if (!this.configuration.RegionEnabled)
+            ImGui.BeginDisabled(!this.configuration.RegionEnabled);
+
         if (ImGui.Button(this.regionOverlayWindow.IsOpen ? "Close Overlay" : "Edit Overlay"))
         {
             if (this.regionOverlayWindow.IsOpen)
@@ -179,8 +210,6 @@ internal sealed class BazookaLensWindow : Window, IDisposable
                 this.regionOverlayWindow.OpenEditor();
             }
         }
-
-        ImGui.TextUnformatted(this.configuration.RegionEnabled ? "Mode: Region" : "Mode: Full frame");
 
         var region = this.configuration.Region ?? CaptureRegion.Full(viewportWidth, viewportHeight);
         var x = region.X;
@@ -213,6 +242,9 @@ internal sealed class BazookaLensWindow : Window, IDisposable
             this.configuration.RegionEnabled = true;
             this.configuration.Save();
         }
+
+        if (!this.configuration.RegionEnabled)
+            ImGui.EndDisabled();
     }
 
     private void DrawGuideControls()
@@ -316,7 +348,7 @@ internal sealed class BazookaLensWindow : Window, IDisposable
         this.captureUiState.HasInvalidScaleDraft = false;
     }
 
-    private void ApplySavePathDraft()
+    private void CommitSavePathDraft()
     {
         try
         {
@@ -341,6 +373,32 @@ internal sealed class BazookaLensWindow : Window, IDisposable
         }
     }
 
+    private void OpenSavePathFolderDialog()
+    {
+        this.folderDialogManager.OpenFolderDialog(
+            "Select Screenshot Folder",
+            this.OnSavePathFolderSelected,
+            this.GetFolderDialogStartPath(),
+            isModal: true);
+    }
+
+    private string GetFolderDialogStartPath()
+    {
+        if (!string.IsNullOrWhiteSpace(this.savePathDraft) && Directory.Exists(this.savePathDraft))
+            return this.savePathDraft;
+
+        return this.pathService.GetScreenshotDirectory();
+    }
+
+    private void OnSavePathFolderSelected(bool success, string path)
+    {
+        if (!success || string.IsNullOrWhiteSpace(path))
+            return;
+
+        this.savePathDraft = path;
+        this.CommitSavePathDraft();
+    }
+
     private void OpenScreenshotFolder()
     {
         try
@@ -358,13 +416,22 @@ internal sealed class BazookaLensWindow : Window, IDisposable
         }
     }
 
-    private void ResetRegionFromViewport()
+    private void EnableRegionFromToggle(int viewportWidth, int viewportHeight)
     {
-        var (viewportWidth, viewportHeight) = GetViewportSize();
-
-        this.configuration.Region = RegionSelectionDefaults.CreateCenteredRegion(viewportWidth, viewportHeight);
+        var fullFrame = CaptureRegion.Full(viewportWidth, viewportHeight);
+        var currentRegion = this.configuration.Region;
+        this.configuration.Region = currentRegion is null || currentRegion.Value == fullFrame
+            ? RegionSelectionDefaults.CreateCenteredRegion(viewportWidth, viewportHeight)
+            : RegionSelectionDefaults.ClampRegion(currentRegion.Value, viewportWidth, viewportHeight);
         this.configuration.RegionEnabled = true;
         this.configuration.Save();
+    }
+
+    private void DisableRegion()
+    {
+        this.configuration.RegionEnabled = false;
+        this.configuration.Save();
+        this.regionOverlayWindow.CloseEditor();
     }
 
     private void EnableRegionForEditingFromViewport()

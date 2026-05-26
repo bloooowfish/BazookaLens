@@ -79,6 +79,8 @@ public sealed class Plugin : IDalamudPlugin
             GameInteropProvider,
             KeyState);
 
+        UiBuilderVisibilityPolicy.Apply(PluginInterface.UiBuilder);
+
         this.configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
         this.configuration.Sanitize();
 
