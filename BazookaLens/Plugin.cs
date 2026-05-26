@@ -107,7 +107,7 @@ public sealed class Plugin : IDalamudPlugin
             this.captureCoordinator,
             this.ownUiSuppressionController,
             this.captureUiState,
-            this.regionOverlayWindow.CommitCurrentRegionWithoutClosing);
+            closeRegionEditorForCapture: this.regionOverlayWindow.CloseEditorForCapture);
         this.shortcutCaptureOverlayWindow = new ShortcutCaptureOverlayWindow(
             this.configuration,
             this.ownUiSuppressionController,
@@ -145,7 +145,8 @@ public sealed class Plugin : IDalamudPlugin
             this.captureCoordinator,
             this.pathService,
             this.unloadCts.Token,
-            this.captureRequestService);
+            this.captureRequestService,
+            this.regionOverlayWindow.CloseEditorForCapture);
 
         CommandManager.AddHandler(CommandName, new CommandInfo(this.commandRouter.OnCommand)
         {

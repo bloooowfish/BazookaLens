@@ -101,6 +101,24 @@ public sealed class RegionSelectionStateTests
     }
 
     [Fact]
+    public void OverlayRightClickCloseSkipsDrawingOnCloseFrame()
+    {
+        var closeFrame = RegionOverlayInput.DecideCloseBeforeDraw(rightPressed: true, wasRightPressed: false);
+        var heldFrame = RegionOverlayInput.DecideCloseBeforeDraw(rightPressed: true, wasRightPressed: true);
+        var releasedFrame = RegionOverlayInput.DecideCloseBeforeDraw(rightPressed: false, wasRightPressed: true);
+
+        Assert.True(closeFrame.ShouldCloseBeforeDraw);
+        Assert.False(closeFrame.ShouldDrawOverlay);
+        Assert.False(closeFrame.NextWasRightPressed);
+        Assert.False(heldFrame.ShouldCloseBeforeDraw);
+        Assert.True(heldFrame.ShouldDrawOverlay);
+        Assert.True(heldFrame.NextWasRightPressed);
+        Assert.False(releasedFrame.ShouldCloseBeforeDraw);
+        Assert.True(releasedFrame.ShouldDrawOverlay);
+        Assert.False(releasedFrame.NextWasRightPressed);
+    }
+
+    [Fact]
     public void MoveClampsRegionInsideViewport()
     {
         var state = new RegionSelectionState(90, 80, 40, 30);

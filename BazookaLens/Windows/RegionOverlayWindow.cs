@@ -50,14 +50,36 @@ internal sealed class RegionOverlayWindow : Window, IDisposable
     {
         this.wasRightMousePressed = false;
         this.IsOpen = true;
+        PluginServices.Log.Debug(
+            "Region overlay opened: Region={Region}",
+            this.configuration.Region?.ToString() ?? "<none>");
     }
 
     public void CloseEditor()
     {
+        this.CloseEditor("Requested");
+    }
+
+    public void CloseEditorForCapture()
+    {
+        if (!this.IsOpen)
+            return;
+
+        this.CloseEditor("CaptureStarted");
+    }
+
+    private void CloseEditor(string reason)
+    {
         this.configuration.Save();
+        var wasOpen = this.IsOpen;
         this.IsOpen = false;
         this.activeHandle = null;
         this.wasRightMousePressed = false;
+        PluginServices.Log.Debug(
+            "Region overlay closed: Reason={Reason}, WasOpen={WasOpen}, Region={Region}",
+            reason,
+            wasOpen,
+            this.configuration.Region?.ToString() ?? "<none>");
     }
 
     public override bool DrawConditions()
@@ -74,6 +96,9 @@ internal sealed class RegionOverlayWindow : Window, IDisposable
 
     public override void Draw()
     {
+        if (this.TryCloseBeforeDrawing())
+            return;
+
         var viewport = ImGui.GetMainViewport();
         var viewportPos = viewport.Pos;
         var viewportSize = viewport.Size;
@@ -103,15 +128,6 @@ internal sealed class RegionOverlayWindow : Window, IDisposable
             viewportPos + new Vector2(18, 18),
             ImGui.GetColorU32(new Vector4(1f, 1f, 1f, SectionInstructionAlpha)),
             "Bazooka Lens region overlay - Right-click or Close Overlay to finish");
-    }
-
-    public void CommitCurrentRegionWithoutClosing()
-    {
-        if (!this.IsOpen || this.configuration.Region is null)
-            return;
-
-        this.configuration.RegionEnabled = true;
-        this.configuration.Save();
     }
 
     private void DrawOverlay(
@@ -171,15 +187,6 @@ internal sealed class RegionOverlayWindow : Window, IDisposable
 
     private void UpdateInput(int viewportWidth, int viewportHeight, RegionDragHandle? hoveredHandle)
     {
-        var rightPressed = ImGui.IsMouseDown(ImGuiMouseButton.Right);
-        if (RegionOverlayInput.ShouldCloseFromRightClick(rightPressed, this.wasRightMousePressed))
-        {
-            this.CloseEditor();
-            return;
-        }
-
-        this.wasRightMousePressed = rightPressed;
-
         if (this.activeHandle is null && hoveredHandle is not null && ImGui.IsMouseClicked(ImGuiMouseButton.Left))
         {
             this.activeHandle = hoveredHandle.Value;
@@ -208,6 +215,19 @@ internal sealed class RegionOverlayWindow : Window, IDisposable
             this.configuration.Save();
             this.activeHandle = null;
         }
+    }
+
+    private bool TryCloseBeforeDrawing()
+    {
+        var decision = RegionOverlayInput.DecideCloseBeforeDraw(
+            ImGui.IsMouseDown(ImGuiMouseButton.Right),
+            this.wasRightMousePressed);
+        this.wasRightMousePressed = decision.NextWasRightPressed;
+        if (!decision.ShouldCloseBeforeDraw)
+            return false;
+
+        this.CloseEditor("RightClick");
+        return !decision.ShouldDrawOverlay;
     }
 
     private static (UiScreenRect Zone, RegionDragHandle Handle)[] CornerHitZones(Vector2 rectMin, Vector2 rectMax)

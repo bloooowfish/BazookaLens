@@ -8,6 +8,11 @@ internal static class ReShadePostEffectsCapturePolicy
 {
     public static TimeSpan CaptureTimeout { get; } = TimeSpan.FromSeconds(12);
 
+    public static bool ShouldTryPostEffectsCaptureWithoutResize(CaptureTiming timing, bool bridgeActive)
+    {
+        return timing == CaptureTiming.AfterImGui && bridgeActive;
+    }
+
     public static bool ShouldArmPostEffectsCaptureAfterSettle(
         CaptureTiming timing,
         bool bridgeActive,

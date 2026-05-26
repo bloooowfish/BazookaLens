@@ -27,6 +27,11 @@ internal readonly record struct UiScreenRect(float X, float Y, float Width, floa
     }
 }
 
+internal readonly record struct RegionOverlayFrameDecision(
+    bool ShouldCloseBeforeDraw,
+    bool ShouldDrawOverlay,
+    bool NextWasRightPressed);
+
 internal static class RegionOverlayInput
 {
     public const float DefaultAnchorSize = 24f;
@@ -97,5 +102,14 @@ internal static class RegionOverlayInput
     public static bool ShouldCloseFromRightClick(bool rightPressed, bool wasRightPressed)
     {
         return rightPressed && !wasRightPressed;
+    }
+
+    public static RegionOverlayFrameDecision DecideCloseBeforeDraw(bool rightPressed, bool wasRightPressed)
+    {
+        var shouldClose = ShouldCloseFromRightClick(rightPressed, wasRightPressed);
+        return new RegionOverlayFrameDecision(
+            shouldClose,
+            ShouldDrawOverlay: !shouldClose,
+            NextWasRightPressed: shouldClose ? false : rightPressed);
     }
 }

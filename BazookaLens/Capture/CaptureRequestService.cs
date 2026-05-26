@@ -8,20 +8,20 @@ internal sealed class CaptureRequestService
     private readonly Func<CaptureOptions, CancellationToken, Task<string>> captureAsync;
     private readonly OwnUiSuppressionController ownUiSuppressionController;
     private readonly CaptureUiState captureUiState;
-    private readonly Action commitCurrentRegion;
+    private readonly Action closeRegionEditorForCapture;
 
     public CaptureRequestService(
         CaptureSettingsProvider settingsProvider,
         CaptureCoordinator captureCoordinator,
         OwnUiSuppressionController ownUiSuppressionController,
         CaptureUiState captureUiState,
-        Action? commitCurrentRegion = null)
+        Action? closeRegionEditorForCapture = null)
         : this(
             settingsProvider,
             captureCoordinator.CaptureAsync,
             ownUiSuppressionController,
             captureUiState,
-            commitCurrentRegion)
+            closeRegionEditorForCapture)
     {
     }
 
@@ -30,13 +30,13 @@ internal sealed class CaptureRequestService
         Func<CaptureOptions, CancellationToken, Task<string>> captureAsync,
         OwnUiSuppressionController ownUiSuppressionController,
         CaptureUiState captureUiState,
-        Action? commitCurrentRegion = null)
+        Action? closeRegionEditorForCapture = null)
     {
         this.settingsProvider = settingsProvider;
         this.captureAsync = captureAsync;
         this.ownUiSuppressionController = ownUiSuppressionController;
         this.captureUiState = captureUiState;
-        this.commitCurrentRegion = commitCurrentRegion ?? (() => { });
+        this.closeRegionEditorForCapture = closeRegionEditorForCapture ?? (() => { });
     }
 
     public async Task<string> CaptureFromConfiguredSettingsAsync(
@@ -57,7 +57,7 @@ internal sealed class CaptureRequestService
         }
 
         using var captureScope = this.captureUiState.BeginCapture();
-        this.commitCurrentRegion();
+        this.closeRegionEditorForCapture();
         var options = this.settingsProvider.CreateShootOptions(scaleOverride);
 
         using (this.ownUiSuppressionController.Suppress())

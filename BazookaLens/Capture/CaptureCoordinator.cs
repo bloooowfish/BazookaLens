@@ -47,9 +47,14 @@ internal sealed class CaptureCoordinator
                 return await this.CaptureScaledAsync(operationId, options, cancellationToken).ConfigureAwait(false);
 
             await this.viewportCaptureService.ValidateOptionsAsync(options, cancellationToken).ConfigureAwait(false);
+            this.TryAutoStartReShadeEventBridge(operationId, options);
 
             if (options.HideGameUi)
                 uiHidden = await this.BeginHideGameUiAsync(operationId, cancellationToken).ConfigureAwait(false);
+
+            var postEffectsOutput = await this.TryCapturePostEffectsWithoutResizeAsync(operationId, options, cancellationToken).ConfigureAwait(false);
+            if (postEffectsOutput is not null)
+                return postEffectsOutput;
 
             var output = await this.viewportCaptureService.CaptureAsync(options, cancellationToken).ConfigureAwait(false);
             PluginServices.Log.Information("Capture operation {OperationId} completed: {OutputPath}", operationId, output);
@@ -261,6 +266,51 @@ internal sealed class CaptureCoordinator
             cancellationToken).ConfigureAwait(false);
     }
 
+    private async Task<string?> TryCapturePostEffectsWithoutResizeAsync(
+        long operationId,
+        CaptureOptions options,
+        CancellationToken cancellationToken)
+    {
+        if (!ReShadePostEffectsCapturePolicy.ShouldTryPostEffectsCaptureWithoutResize(options.Timing, this.reShadeEventBridge.IsActive))
+            return null;
+
+        ReShadePostEffectsCaptureRequest? postEffectsCaptureRequest = null;
+        try
+        {
+            var renderState = await PluginServices.Framework
+                .RunOnFrameworkThread(ResizeProbeRenderState.Capture)
+                .ConfigureAwait(false);
+            var target = renderState.RequireDeviceTarget();
+            ValidateCaptureRegionAgainstTarget(options, target);
+
+            postEffectsCaptureRequest = this.reShadeEventBridge.ArmNextPostEffectsCapture(
+                options.Region,
+                new ReShadePostEffectsCaptureTarget(target.Width, target.Height));
+
+            using var postEffectsTexture = await this.reShadeEventBridge
+                .WaitForPostEffectsCaptureAsync(postEffectsCaptureRequest, ReShadePostEffectsCapturePolicy.CaptureTimeout, cancellationToken)
+                .ConfigureAwait(false);
+            postEffectsCaptureRequest = null;
+
+            var output = await this.viewportCaptureService
+                .SaveTextureAsync(postEffectsTexture, options, TextureCaptureSavePolicy.ReShadeFinishEffectsSource, cancellationToken)
+                .ConfigureAwait(false);
+
+            PluginServices.Log.Information(
+                "Capture operation {OperationId} post-ReShade capture completed without resize: OutputPath={OutputPath}, Target={TargetWidth}x{TargetHeight}",
+                operationId,
+                output,
+                target.Width,
+                target.Height);
+            return output;
+        }
+        finally
+        {
+            if (postEffectsCaptureRequest is not null)
+                this.reShadeEventBridge.CancelPostEffectsCapture(postEffectsCaptureRequest);
+        }
+    }
+
     private static bool RequiresScaledCapture(CaptureOptions options)
     {
         return Math.Abs(options.Scale - 1.0) > double.Epsilon;
@@ -329,7 +379,7 @@ internal sealed class CaptureCoordinator
 
         try
         {
-            PluginServices.Log.Information("Capture operation {OperationId} auto-starting ReShade event bridge for scaled post-effects capture.", operationId);
+            PluginServices.Log.Information("Capture operation {OperationId} auto-starting ReShade event bridge for post-effects capture.", operationId);
             var status = this.reShadeEventBridge.Start();
             PluginServices.Log.Information("Capture operation {OperationId} ReShade event bridge auto-start result:\n{Status}", operationId, status);
         }
@@ -337,7 +387,7 @@ internal sealed class CaptureCoordinator
         {
             PluginServices.Log.Warning(
                 ex,
-                "Capture operation {OperationId} could not auto-start ReShade event bridge; scaled capture will continue with viewport fallback if post-effects events remain unavailable.",
+                "Capture operation {OperationId} could not auto-start ReShade event bridge; capture will continue with viewport fallback if post-effects events remain unavailable.",
                 operationId);
         }
     }
@@ -397,7 +447,7 @@ internal sealed class CaptureCoordinator
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        return await PluginServices.Framework
+        var hidden = await PluginServices.Framework
             .RunOnFrameworkThread(
                 () =>
                 {
@@ -418,6 +468,16 @@ internal sealed class CaptureCoordinator
                     return true;
                 })
             .ConfigureAwait(false);
+
+        await PluginServices.Framework
+            .DelayTicks(CaptureUiHideTimingPolicy.GameUiHidePresentationDelayTicks, cancellationToken)
+            .ConfigureAwait(false);
+        PluginServices.Log.Information(
+            "Capture operation {OperationId} waited {Ticks} framework tick(s) for hidden game UI presentation.",
+            operationId,
+            CaptureUiHideTimingPolicy.GameUiHidePresentationDelayTicks);
+
+        return hidden;
     }
 
     private async Task RestoreUiBestEffortAsync(long operationId)

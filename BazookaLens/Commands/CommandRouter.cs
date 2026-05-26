@@ -45,6 +45,7 @@ internal sealed class CommandRouter
     private readonly CaptureCoordinator captureCoordinator;
     private readonly CapturePathService pathService;
     private readonly CaptureRequestService? captureRequestService;
+    private readonly Action closeRegionEditorForCapture;
     private readonly CancellationToken unloadToken;
     private long commandSequence;
 
@@ -56,7 +57,8 @@ internal sealed class CommandRouter
         CaptureCoordinator captureCoordinator,
         CapturePathService pathService,
         CancellationToken unloadToken,
-        CaptureRequestService? captureRequestService = null)
+        CaptureRequestService? captureRequestService = null,
+        Action? closeRegionEditorForCapture = null)
     {
         this.statusService = statusService;
         this.reShadeExportProbe = reShadeExportProbe;
@@ -66,6 +68,7 @@ internal sealed class CommandRouter
         this.pathService = pathService;
         this.unloadToken = unloadToken;
         this.captureRequestService = captureRequestService;
+        this.closeRegionEditorForCapture = closeRegionEditorForCapture ?? (() => { });
     }
 
     public static ParsedBlensCommand Parse(string args)
@@ -410,6 +413,7 @@ internal sealed class CommandRouter
         try
         {
             PluginServices.Log.Information("Command {CommandId} capture started: {Options}", commandId, options);
+            this.closeRegionEditorForCapture();
             var output = await this.captureCoordinator.CaptureAsync(options, this.unloadToken).ConfigureAwait(false);
 
             PluginServices.ChatGui.Print($"Bazooka Lens: saved {Path.GetFileName(output)}. Use /blens open-folder to view captures.");

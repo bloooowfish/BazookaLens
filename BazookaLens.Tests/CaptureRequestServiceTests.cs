@@ -1,5 +1,6 @@
 using BazookaLens.Capture;
 using BazookaLens.UI;
+using Dalamud.Interface.Windowing;
 
 namespace BazookaLens.Tests;
 
@@ -65,7 +66,7 @@ public sealed class CaptureRequestServiceTests
         var controller = new OwnUiSuppressionController();
         var uiState = new CaptureUiState();
         var captured = false;
-        var committed = false;
+        var closed = false;
         var service = CreateService(
             uiState,
             (_, token) =>
@@ -74,22 +75,45 @@ public sealed class CaptureRequestServiceTests
                 return Task.FromResult(@"C:\shot.png");
             },
             controller,
-            () => committed = true);
+            () => closed = true);
 
         await Assert.ThrowsAsync<OperationCanceledException>(() =>
             service.CaptureFromConfiguredSettingsAsync(null, requireInteractiveAvailability: true, cts.Token));
 
         Assert.False(captured);
-        Assert.False(committed);
+        Assert.False(closed);
         Assert.False(uiState.IsCapturing);
         Assert.False(controller.IsSuppressed);
+    }
+
+    [Fact]
+    public async Task CaptureClosesRegionEditorBeforeSuppressionSnapshot()
+    {
+        var controller = new OwnUiSuppressionController();
+        var overlayWindow = new TestWindow { IsOpen = true };
+        controller.Register(overlayWindow);
+        var uiState = new CaptureUiState();
+        var service = CreateService(
+            uiState,
+            (_, _) =>
+            {
+                Assert.True(controller.IsSuppressed);
+                Assert.False(overlayWindow.IsOpen);
+                return Task.FromResult(@"C:\shot.png");
+            },
+            controller,
+            closeRegionEditorForCapture: () => overlayWindow.IsOpen = false);
+
+        await service.CaptureFromConfiguredSettingsAsync(null, requireInteractiveAvailability: true, CancellationToken.None);
+
+        Assert.False(overlayWindow.IsOpen);
     }
 
     private static CaptureRequestService CreateService(
         CaptureUiState uiState,
         Func<CaptureOptions, CancellationToken, Task<string>> captureAsync,
         OwnUiSuppressionController? controller = null,
-        Action? commitCurrentRegion = null)
+        Action? closeRegionEditorForCapture = null)
     {
         var configuration = new Configuration();
         var provider = new CaptureSettingsProvider(configuration);
@@ -98,6 +122,18 @@ public sealed class CaptureRequestServiceTests
             captureAsync,
             controller ?? new OwnUiSuppressionController(),
             uiState,
-            commitCurrentRegion);
+            closeRegionEditorForCapture);
+    }
+
+    private sealed class TestWindow : Window
+    {
+        public TestWindow()
+            : base("Test###CaptureRequestServiceTests")
+        {
+        }
+
+        public override void Draw()
+        {
+        }
     }
 }

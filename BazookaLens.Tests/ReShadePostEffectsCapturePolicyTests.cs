@@ -25,6 +25,25 @@ public sealed class ReShadePostEffectsCapturePolicyTests
     }
 
     [Fact]
+    public void TriesPostEffectsCaptureWithoutResizeForActiveAfterCaptures()
+    {
+        Assert.True(ReShadePostEffectsCapturePolicy.ShouldTryPostEffectsCaptureWithoutResize(
+            CaptureTiming.AfterImGui,
+            bridgeActive: true));
+    }
+
+    [Fact]
+    public void SkipsPostEffectsCaptureWithoutResizeForInactiveOrBeforeCaptures()
+    {
+        Assert.False(ReShadePostEffectsCapturePolicy.ShouldTryPostEffectsCaptureWithoutResize(
+            CaptureTiming.AfterImGui,
+            bridgeActive: false));
+        Assert.False(ReShadePostEffectsCapturePolicy.ShouldTryPostEffectsCaptureWithoutResize(
+            CaptureTiming.BeforeImGui,
+            bridgeActive: true));
+    }
+
+    [Fact]
     public void SkipsArmingPostEffectsCaptureAfterSettleWhenBridgeIsInactive()
     {
         var before = new ReShadeEventCounts(InitEffectRuntime: 1, ReloadedEffects: 1, BeginEffects: 10, FinishEffects: 10);
