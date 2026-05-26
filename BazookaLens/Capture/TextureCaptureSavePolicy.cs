@@ -6,8 +6,9 @@ internal static class TextureCaptureSavePolicy
 {
     public const string ReShadeFinishEffectsSource = "ReShadeFinishEffects";
 
-    public static bool ShouldMakeOpaque(string captureSource)
+    public static bool ShouldMakeOpaque(string captureSource, CaptureImageFormat imageFormat)
     {
-        return string.Equals(captureSource, ReShadeFinishEffectsSource, StringComparison.Ordinal);
+        return imageFormat == CaptureImageFormat.Png &&
+            string.Equals(captureSource, ReShadeFinishEffectsSource, StringComparison.Ordinal);
     }
 }

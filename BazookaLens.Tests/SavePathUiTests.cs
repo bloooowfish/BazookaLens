@@ -17,6 +17,18 @@ public sealed class SavePathUiTests
         Assert.Contains("OpenFolderDialog", source, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void FormatControlsAreRenderedAfterSavePath()
+    {
+        var source = ReadMainWindowSource();
+
+        Assert.Contains("this.DrawFormatControls();", source, StringComparison.Ordinal);
+        Assert.True(
+            source.IndexOf("this.DrawSavePathControls(ref textInputActive);", StringComparison.Ordinal) <
+            source.IndexOf("this.DrawFormatControls();", StringComparison.Ordinal));
+        Assert.Contains("Image Format", source, StringComparison.Ordinal);
+    }
+
     private static string ReadMainWindowSource()
     {
         var path = Path.GetFullPath(Path.Combine(

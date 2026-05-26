@@ -24,4 +24,18 @@ public sealed class CapturePathServiceTests
 
         Assert.Equal(@"C:\default", resolved);
     }
+
+    [Theory]
+    [InlineData(".png", "bazooka-lens-20260527-010203-456-0007-full.png")]
+    [InlineData(".bmp", "bazooka-lens-20260527-010203-456-0007-full.bmp")]
+    public void CreateFileNameUsesRequestedExtension(string extension, string expected)
+    {
+        var fileName = CapturePathService.CreateFileName(
+            "20260527-010203-456",
+            7,
+            region: null,
+            extension);
+
+        Assert.Equal(expected, fileName);
+    }
 }

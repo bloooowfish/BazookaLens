@@ -96,7 +96,7 @@ public sealed class Plugin : IDalamudPlugin
         var resizeProbeService = new ResizeProbeService();
         this.captureSettingsProvider = new CaptureSettingsProvider(this.configuration);
         this.pathService = new CapturePathService(() => this.captureSettingsProvider.ConfiguredSaveDirectory);
-        var encoderService = new ImageEncoderService();
+        var encoderService = new ImageEncoderService(() => this.configuration.ImageFormat);
         var viewportCaptureService = new ViewportCaptureService(encoderService, this.pathService);
         var uiVisibilityController = new UiVisibilityController();
 

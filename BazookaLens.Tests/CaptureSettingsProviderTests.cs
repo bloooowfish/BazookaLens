@@ -60,4 +60,15 @@ public sealed class CaptureSettingsProviderTests
         Assert.Equal(1.5, options.Scale);
         Assert.Equal(2.0, config.Scale);
     }
+
+    [Fact]
+    public void SettingsSnapshotIncludesImageFormat()
+    {
+        var config = new Configuration { ImageFormat = CaptureImageFormat.Bmp };
+        var provider = new CaptureSettingsProvider(config);
+
+        var settings = provider.CreateSettings();
+
+        Assert.Equal(CaptureImageFormat.Bmp, settings.ImageFormat);
+    }
 }

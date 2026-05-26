@@ -22,7 +22,7 @@ internal sealed class BazookaLensWindow : Window, IDisposable
     private static readonly Vector4 ErrorTextColor = new(1f, 0.35f, 0.35f, 1f);
     private static readonly Vector4 RegionActiveTextColor = new(0.35f, 0.9f, 0.58f, 1f);
     private static readonly Vector4 RegionInactiveTextColor = new(0.72f, 0.72f, 0.72f, 1f);
-    private static readonly Vector2 InitialWindowSize = new(420, 560);
+    private static readonly Vector2 InitialWindowSize = new(420, 660);
     private static readonly Vector2 ShootButtonSize = new(120, 32);
 
     private static readonly string[] GuideModeLabels =
@@ -32,6 +32,18 @@ internal sealed class BazookaLensWindow : Window, IDisposable
         "Center Cross",
         "Grid",
         "Golden",
+    ];
+
+    private static readonly CaptureImageFormat[] ImageFormats =
+    [
+        CaptureImageFormat.Png,
+        CaptureImageFormat.Bmp,
+    ];
+
+    private static readonly string[] ImageFormatLabels =
+    [
+        "PNG",
+        "BMP",
     ];
 
     private readonly Configuration configuration;
@@ -83,6 +95,8 @@ internal sealed class BazookaLensWindow : Window, IDisposable
         this.DrawScaleControls(ref textInputActive);
         ImGui.Separator();
         this.DrawSavePathControls(ref textInputActive);
+        ImGui.Separator();
+        this.DrawFormatControls();
         ImGui.Separator();
         this.DrawRegionControls(ref textInputActive);
         ImGui.Separator();
@@ -245,6 +259,22 @@ internal sealed class BazookaLensWindow : Window, IDisposable
 
         if (!this.configuration.RegionEnabled)
             ImGui.EndDisabled();
+    }
+
+    private void DrawFormatControls()
+    {
+        DrawSectionTitle("Format");
+
+        var formatIndex = Array.IndexOf(ImageFormats, this.configuration.ImageFormat);
+        if (formatIndex < 0)
+            formatIndex = 0;
+
+        ImGui.SetNextItemWidth(160f);
+        if (ImGui.Combo("Image Format", ref formatIndex, ImageFormatLabels, ImageFormatLabels.Length))
+        {
+            this.configuration.ImageFormat = ImageFormats[formatIndex];
+            this.configuration.Save();
+        }
     }
 
     private void DrawGuideControls()

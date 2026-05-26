@@ -30,19 +30,34 @@ internal sealed class CapturePathService
         return directory;
     }
 
-    public string CreateOutputPath(CaptureRegion? region)
+    public string CreateOutputPath(CaptureRegion? region, string extension)
     {
         var directory = this.GetScreenshotDirectory();
 
         var timestamp = DateTimeOffset.Now.ToString("yyyyMMdd-HHmmss-fff", CultureInfo.InvariantCulture);
         var id = Interlocked.Increment(ref this.sequence);
-        var regionSuffix = region is { } r
-            ? $"-x{r.X}-y{r.Y}-w{r.Width}-h{r.Height}"
-            : "-full";
-        var fileName = $"bazooka-lens-{timestamp}-{id:0000}{regionSuffix}.png";
+        var fileName = CreateFileName(timestamp, id, region, extension);
         var path = Path.Combine(directory, fileName);
 
         PluginServices.Log.Debug("Capture output path allocated: {Path}", path);
         return path;
+    }
+
+    public static string CreateFileName(string timestamp, long id, CaptureRegion? region, string extension)
+    {
+        var regionSuffix = region is { } r
+            ? $"-x{r.X}-y{r.Y}-w{r.Width}-h{r.Height}"
+            : "-full";
+        return $"bazooka-lens-{timestamp}-{id:0000}{regionSuffix}{NormalizeExtension(extension)}";
+    }
+
+    private static string NormalizeExtension(string extension)
+    {
+        if (string.IsNullOrWhiteSpace(extension))
+            throw new ArgumentException("File extension must be provided.", nameof(extension));
+
+        return extension.StartsWith(".", StringComparison.Ordinal)
+            ? extension
+            : $".{extension}";
     }
 }

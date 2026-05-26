@@ -5,11 +5,15 @@ namespace BazookaLens.Tests;
 public sealed class TextureCaptureSavePolicyTests
 {
     [Theory]
-    [InlineData("ReShadeFinishEffects", true)]
-    [InlineData("Viewport", false)]
-    [InlineData("Other", false)]
-    public void MakesOnlyReShadeFinishEffectsCapturesOpaque(string captureSource, bool expected)
+    [InlineData("ReShadeFinishEffects", CaptureImageFormat.Png, true)]
+    [InlineData("ReShadeFinishEffects", CaptureImageFormat.Bmp, false)]
+    [InlineData("Viewport", CaptureImageFormat.Png, false)]
+    [InlineData("Other", CaptureImageFormat.Png, false)]
+    internal void MakesOnlyPngReShadeFinishEffectsCapturesOpaque(
+        string captureSource,
+        CaptureImageFormat format,
+        bool expected)
     {
-        Assert.Equal(expected, TextureCaptureSavePolicy.ShouldMakeOpaque(captureSource));
+        Assert.Equal(expected, TextureCaptureSavePolicy.ShouldMakeOpaque(captureSource, format));
     }
 }

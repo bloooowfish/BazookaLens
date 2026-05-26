@@ -13,7 +13,7 @@ internal sealed class ViewportCaptureService
     private sealed record PreparedViewportCapture(
         ImGuiViewportTextureArgs Args,
         string OutputPath,
-        Guid PngGuid,
+        ImageEncoderInfo Encoder,
         int ViewportWidth,
         int ViewportHeight,
         CaptureRegion Region);
@@ -92,7 +92,7 @@ internal sealed class ViewportCaptureService
             prepared.OutputPath);
 
         await PluginServices.TextureReadbackProvider
-            .SaveToFileAsync(texture, prepared.PngGuid, prepared.OutputPath, leaveWrapOpen: true, cancellationToken: cancellationToken)
+            .SaveToFileAsync(texture, prepared.Encoder.ContainerGuid, prepared.OutputPath, leaveWrapOpen: true, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
 
         PluginServices.Log.Information("Viewport capture saved: {OutputPath}", prepared.OutputPath);
@@ -106,9 +106,9 @@ internal sealed class ViewportCaptureService
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var outputPath = this.pathService.CreateOutputPath(options.Region);
-        var pngGuid = this.encoderService.GetPngContainerGuid();
-        var forceOpaqueAlpha = TextureCaptureSavePolicy.ShouldMakeOpaque(captureSource);
+        var encoder = this.encoderService.GetCurrentEncoder();
+        var outputPath = this.pathService.CreateOutputPath(options.Region, encoder.FileExtension);
+        var forceOpaqueAlpha = TextureCaptureSavePolicy.ShouldMakeOpaque(captureSource, encoder.Format);
 
         PluginServices.Log.Information(
             "Texture capture save requested: Source={CaptureSource}, Texture={Width}x{Height}, Region={Region}, ForceOpaqueAlpha={ForceOpaqueAlpha}, OutputPath={OutputPath}",
@@ -120,7 +120,7 @@ internal sealed class ViewportCaptureService
             outputPath);
 
         await PluginServices.TextureReadbackProvider
-            .SaveToFileAsync(texture, pngGuid, outputPath, leaveWrapOpen: true, cancellationToken: cancellationToken)
+            .SaveToFileAsync(texture, encoder.ContainerGuid, outputPath, leaveWrapOpen: true, cancellationToken: cancellationToken)
             .ConfigureAwait(false);
 
         if (forceOpaqueAlpha)
@@ -163,9 +163,9 @@ internal sealed class ViewportCaptureService
             Uv1 = uv1,
         };
 
-        var outputPath = this.pathService.CreateOutputPath(options.Region);
-        var pngGuid = this.encoderService.GetPngContainerGuid();
+        var encoder = this.encoderService.GetCurrentEncoder();
+        var outputPath = this.pathService.CreateOutputPath(options.Region, encoder.FileExtension);
 
-        return new PreparedViewportCapture(args, outputPath, pngGuid, viewportWidth, viewportHeight, region);
+        return new PreparedViewportCapture(args, outputPath, encoder, viewportWidth, viewportHeight, region);
     }
 }

@@ -18,6 +18,8 @@ internal sealed class Configuration : IPluginConfiguration
 
     public string? SaveDirectory { get; set; }
 
+    public CaptureImageFormat ImageFormat { get; set; } = CaptureImageFormat.Png;
+
     public KeyboardShortcut? Shortcut { get; set; }
 
     public GuideMode GuideMode { get; set; } = GuideMode.RuleOfThirds;
@@ -34,6 +36,8 @@ internal sealed class Configuration : IPluginConfiguration
 
         this.GridRows = GuideLayout.ClampGridDivision(this.GridRows);
         this.GridColumns = GuideLayout.ClampGridDivision(this.GridColumns);
+        if (!Enum.IsDefined(this.ImageFormat))
+            this.ImageFormat = CaptureImageFormat.Png;
     }
 
     public void Save()

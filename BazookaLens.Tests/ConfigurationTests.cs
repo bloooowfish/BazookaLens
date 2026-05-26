@@ -1,3 +1,4 @@
+using BazookaLens.Capture;
 using BazookaLens.UI;
 using Dalamud.Game.ClientState.Keys;
 using System.Text.Json;
@@ -16,6 +17,7 @@ public sealed class ConfigurationTests
         Assert.False(config.RegionEnabled);
         Assert.Null(config.Region);
         Assert.Null(config.SaveDirectory);
+        Assert.Equal(CaptureImageFormat.Png, config.ImageFormat);
         Assert.Null(config.Shortcut);
         Assert.Equal(GuideMode.RuleOfThirds, config.GuideMode);
         Assert.Equal(3, config.GridRows);
@@ -63,6 +65,7 @@ public sealed class ConfigurationTests
             RegionEnabled = true,
             Region = new(10, 20, 300, 200),
             SaveDirectory = @"D:\shots",
+            ImageFormat = CaptureImageFormat.Bmp,
             Shortcut = new KeyboardShortcut([VirtualKey.CONTROL, VirtualKey.F12]),
             GuideMode = GuideMode.Grid,
             GridRows = 4,
@@ -76,6 +79,7 @@ public sealed class ConfigurationTests
         Assert.Equal(config.RegionEnabled, roundTrip.RegionEnabled);
         Assert.Equal(config.Region, roundTrip.Region);
         Assert.Equal(config.SaveDirectory, roundTrip.SaveDirectory);
+        Assert.Equal(config.ImageFormat, roundTrip.ImageFormat);
         Assert.NotNull(roundTrip.Shortcut);
         Assert.Equal(config.Shortcut.Keys, roundTrip.Shortcut.Keys);
         Assert.Equal(config.GuideMode, roundTrip.GuideMode);

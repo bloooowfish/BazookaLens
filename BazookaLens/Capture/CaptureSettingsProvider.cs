@@ -24,6 +24,7 @@ internal sealed class CaptureSettingsProvider
             this.configuration.Scale,
             this.configuration.RegionEnabled,
             this.configuration.Region,
-            this.configuration.SaveDirectory);
+            this.configuration.SaveDirectory,
+            this.configuration.ImageFormat);
     }
 }
