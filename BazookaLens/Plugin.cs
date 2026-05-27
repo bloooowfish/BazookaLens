@@ -146,17 +146,20 @@ public sealed class Plugin : IDalamudPlugin
             this.pathService,
             this.unloadCts.Token,
             this.captureRequestService,
-            this.regionOverlayWindow.CloseEditorForCapture);
+            this.regionOverlayWindow.CloseEditorForCapture,
+            this.OpenMainUi);
 
         CommandManager.AddHandler(CommandName, new CommandInfo(this.commandRouter.OnCommand)
         {
-            HelpMessage = "Bazooka Lens render pipeline validation commands.",
+            HelpMessage = "Open Bazooka Lens. Use /blens help for commands.",
         });
 
         Log.Information("Bazooka Lens initialized and command registered: {CommandName}", CommandName);
     }
 
     private void ToggleMainUi() => this.mainWindow.Toggle();
+
+    private void OpenMainUi() => this.mainWindow.IsOpen = true;
 
     private Task RunGuiCaptureAsync()
     {

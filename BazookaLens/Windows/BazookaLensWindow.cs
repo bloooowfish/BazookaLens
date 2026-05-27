@@ -40,6 +40,15 @@ internal sealed class BazookaLensWindow : Window, IDisposable
         CaptureImageFormat.Bmp,
     ];
 
+    private static readonly (string Label, double Scale)[] ScalePresets =
+    [
+        ("1x", 1.0),
+        ("1.5x", 1.5),
+        ("2x", 2.0),
+        ("2.5x", 2.5),
+        ("3x", 3.0),
+    ];
+
     private static readonly string[] ImageFormatLabels =
     [
         "PNG",
@@ -113,20 +122,29 @@ internal sealed class BazookaLensWindow : Window, IDisposable
     private void DrawScaleControls(ref bool textInputActive)
     {
         DrawSectionTitle("Scale");
-        this.DrawScalePreset("1x", 1.0);
-        ImGui.SameLine();
-        this.DrawScalePreset("1.5x", 1.5);
-        ImGui.SameLine();
-        this.DrawScalePreset("2x", 2.0);
+        for (var i = 0; i < ScalePresets.Length; i++)
+        {
+            if (i > 0)
+                ImGui.SameLine();
+
+            this.DrawScalePreset(ScalePresets[i].Label, ScalePresets[i].Scale);
+        }
 
         ImGui.SetNextItemWidth(CustomScaleInputWidth);
-        if (ImGui.InputText("##CustomScale", ref this.customScaleText, CustomScaleInputLength))
-            this.ValidateScaleDraft();
+        var submitted = ImGui.InputText(
+            "##CustomScale",
+            ref this.customScaleText,
+            CustomScaleInputLength,
+            ImGuiInputTextFlags.EnterReturnsTrue);
+        var edited = ImGui.IsItemEdited();
         textInputActive |= ImGui.IsItemActive();
+        if (edited)
+            this.ValidateScaleDraft();
+        if (submitted)
+            this.ApplyScaleDraft();
 
         ImGui.SameLine();
-        if (ImGui.Button("Apply##Scale"))
-            this.ApplyScaleDraft();
+        ImGui.TextUnformatted($"Max = {FormatScale(CaptureScalePolicy.MaxScale)}");
 
         if (this.scaleError is not null)
             ImGui.TextColored(ErrorTextColor, this.scaleError);

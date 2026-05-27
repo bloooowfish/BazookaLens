@@ -22,12 +22,12 @@ Default settings:
 - Grid defaults: `3 x 3`
 - Save path: Bazooka Lens plugin screenshot folder
 
-Scale presets are `1x`, `1.5x`, and `2x`. Custom scale accepts values greater than `0` and up to `4.00`; the UI accepts at most two decimal places.
+Scale presets are `1x`, `1.5x`, `2x`, `2.5x`, and `3x`. Custom scale accepts values greater than `0` and up to `4.00`; the UI accepts at most two decimal places and applies the value when you press Enter.
 
 Plugin window sections:
 
-- **Scale**: choose `1x`, `1.5x`, `2x`, or type a custom scale and press **Apply**.
-- **Save Path**: press **Apply**, **Use Default**, or **Open Folder**.
+- **Scale**: choose `1x`, `1.5x`, `2x`, `2.5x`, `3x`, or type a custom scale and press Enter.
+- **Save Path**: type a path and press Enter, use the folder button, choose **Use Default**, or open the current folder.
 - **Region**: switch between **Full Frame**, **Use Region**, and **Edit Overlay**.
 - **Guides**: choose `None`, `Rule of Thirds`, `Center Cross`, `Grid`, or `Golden`. Grid mode also exposes **Rows** and **Columns**.
 - **Shortcut**: shows `Current: (not set)` until a shortcut is configured. Use **Set Shortcut** or **Clear Shortcut**.

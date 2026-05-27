@@ -6,6 +6,15 @@ namespace BazookaLens.Tests;
 public sealed class CommandRouterParsingTests
 {
     [Fact]
+    public void ParseEmptyArgsOpensMainUi()
+    {
+        var parsed = CommandRouter.Parse("");
+
+        Assert.Equal(BlensCommand.OpenUi, parsed.Command);
+        Assert.Null(parsed.CaptureOptions);
+    }
+
+    [Fact]
     public void ParseRecognizesHelp()
     {
         var parsed = CommandRouter.Parse("help");
@@ -17,9 +26,13 @@ public sealed class CommandRouterParsingTests
     [Fact]
     public void HelpTextDocumentsDefaultShootWorkflow()
     {
+        Assert.Contains("/blens - Open the settings window.", CommandRouter.HelpText);
+        Assert.Contains("/blens help - Show this help.", CommandRouter.HelpText);
+        Assert.Contains(Environment.NewLine, CommandRouter.HelpText);
+        Assert.DoesNotContain(" | ", CommandRouter.HelpText);
         Assert.Contains("/blens shoot [scale]", CommandRouter.HelpText);
         Assert.DoesNotContain("/native" + "shot", CommandRouter.HelpText);
-        Assert.Contains("configured scale unless overridden", CommandRouter.HelpText);
+        Assert.Contains("optional scale overrides one shot", CommandRouter.HelpText);
         Assert.DoesNotContain("scale=2", CommandRouter.HelpText);
         Assert.DoesNotContain("default 2", CommandRouter.HelpText);
         Assert.Contains("hide-ui", CommandRouter.HelpText);

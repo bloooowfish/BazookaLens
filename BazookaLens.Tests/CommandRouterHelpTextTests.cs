@@ -11,7 +11,12 @@ public sealed class CommandRouterHelpTextTests
     [MemberData(nameof(HelpEntries))]
     internal void HelpTextIncludesEveryUsage(BlensCommandHelpEntry entry)
     {
-        Assert.Contains(entry.Usage, CommandRouter.HelpText, StringComparison.Ordinal);
+        var command = string.IsNullOrEmpty(entry.Usage)
+            ? "/blens"
+            : $"/blens {entry.Usage}";
+
+        Assert.Contains(command, CommandRouter.HelpText, StringComparison.Ordinal);
+        Assert.Contains(entry.Description, CommandRouter.HelpText, StringComparison.Ordinal);
     }
 
     [Theory]

@@ -14,29 +14,32 @@ namespace BazookaLens.Commands;
 internal readonly record struct BlensCommandHelpEntry(
     string Usage,
     string SampleInvocation,
-    BlensCommand ExpectedCommand);
+    BlensCommand ExpectedCommand,
+    string Description);
 
 internal sealed class CommandRouter
 {
     public static readonly IReadOnlyList<BlensCommandHelpEntry> HelpEntries =
     [
-        new("shoot [scale] (configured scale unless overridden, after, hide-ui, post-ReShade when available)", "shoot 1.5", BlensCommand.Shoot),
-        new("open-folder", "open-folder", BlensCommand.OpenFolder),
-        new("status", "status", BlensCommand.Status),
-        new("reshade-status", "reshade-status", BlensCommand.ReShadeStatus),
-        new("reshade-events start|stop|status", "reshade-events status", BlensCommand.ReShadeEvents),
-        new("capture [before|after] [hide-ui]", "capture after hide-ui", BlensCommand.Capture),
-        new("capture-scale scale [before|after] [hide-ui]", "capture-scale 1.5 after hide-ui", BlensCommand.Capture),
-        new("capture-region x y w h [before|after] [hide-ui]", "capture-region 100 100 400 300 after hide-ui", BlensCommand.Capture),
-        new("capture-region-scale x y w h scale [before|after] [hide-ui]", "capture-region-scale 100 100 400 300 1.5 after hide-ui", BlensCommand.Capture),
-        new("resize-probe scale [dry-run|device]", "resize-probe 1.5 dry-run", BlensCommand.ResizeProbe),
-        new("restore-ui", "restore-ui", BlensCommand.RestoreUi),
-        new("restore-display [force]", "restore-display force", BlensCommand.RestoreDisplay),
-        new("help", "help", BlensCommand.Help),
+        new("", "", BlensCommand.OpenUi, "Open the settings window."),
+        new("help", "help", BlensCommand.Help, "Show this help."),
+        new("shoot [scale]", "shoot 1.5", BlensCommand.Shoot, "Capture with configured settings; optional scale overrides one shot."),
+        new("open-folder", "open-folder", BlensCommand.OpenFolder, "Open the screenshot folder."),
+        new("status", "status", BlensCommand.Status, "Write runtime status to /xllog."),
+        new("reshade-status", "reshade-status", BlensCommand.ReShadeStatus, "Print ReShade bridge availability."),
+        new("reshade-events start|stop|status", "reshade-events status", BlensCommand.ReShadeEvents, "Control or inspect the ReShade event bridge."),
+        new("capture [before|after] [hide-ui]", "capture after hide-ui", BlensCommand.Capture, "Debug full-frame capture."),
+        new("capture-scale scale [before|after] [hide-ui]", "capture-scale 1.5 after hide-ui", BlensCommand.Capture, "Debug scaled full-frame capture."),
+        new("capture-region x y w h [before|after] [hide-ui]", "capture-region 100 100 400 300 after hide-ui", BlensCommand.Capture, "Debug region capture."),
+        new("capture-region-scale x y w h scale [before|after] [hide-ui]", "capture-region-scale 100 100 400 300 1.5 after hide-ui", BlensCommand.Capture, "Debug scaled region capture."),
+        new("resize-probe scale [dry-run|device]", "resize-probe 1.5 dry-run", BlensCommand.ResizeProbe, "Probe render target resizing."),
+        new("restore-ui", "restore-ui", BlensCommand.RestoreUi, "Restore game UI visibility."),
+        new("restore-display [force]", "restore-display force", BlensCommand.RestoreDisplay, "Restore the configured display mode."),
     ];
 
     public static readonly string HelpText =
-        "Bazooka Lens: " + string.Join(" | ", HelpEntries.Select(entry => $"/blens {entry.Usage}"));
+        "Bazooka Lens commands:" + Environment.NewLine +
+        string.Join(Environment.NewLine, HelpEntries.Select(FormatHelpEntry));
 
     private readonly RuntimeStatusService statusService;
     private readonly ReShadeExportProbe reShadeExportProbe;
@@ -46,6 +49,7 @@ internal sealed class CommandRouter
     private readonly CapturePathService pathService;
     private readonly CaptureRequestService? captureRequestService;
     private readonly Action closeRegionEditorForCapture;
+    private readonly Action openMainUi;
     private readonly CancellationToken unloadToken;
     private long commandSequence;
 
@@ -58,7 +62,8 @@ internal sealed class CommandRouter
         CapturePathService pathService,
         CancellationToken unloadToken,
         CaptureRequestService? captureRequestService = null,
-        Action? closeRegionEditorForCapture = null)
+        Action? closeRegionEditorForCapture = null,
+        Action? openMainUi = null)
     {
         this.statusService = statusService;
         this.reShadeExportProbe = reShadeExportProbe;
@@ -69,13 +74,14 @@ internal sealed class CommandRouter
         this.unloadToken = unloadToken;
         this.captureRequestService = captureRequestService;
         this.closeRegionEditorForCapture = closeRegionEditorForCapture ?? (() => { });
+        this.openMainUi = openMainUi ?? (() => { });
     }
 
     public static ParsedBlensCommand Parse(string args)
     {
         var tokens = SplitArgs(args);
         if (tokens.Length == 0)
-            return new ParsedBlensCommand(BlensCommand.Help);
+            return new ParsedBlensCommand(BlensCommand.OpenUi);
 
         return tokens[0].ToLowerInvariant() switch
         {
@@ -120,6 +126,9 @@ internal sealed class CommandRouter
 
         switch (parsed.Command)
         {
+            case BlensCommand.OpenUi:
+                this.OpenMainUi(commandId);
+                break;
             case BlensCommand.Help:
                 this.PrintHelp(commandId);
                 break;
@@ -314,6 +323,14 @@ internal sealed class CommandRouter
         return args.Split(' ', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
     }
 
+    private static string FormatHelpEntry(BlensCommandHelpEntry entry)
+    {
+        var command = string.IsNullOrEmpty(entry.Usage)
+            ? "/blens"
+            : $"/blens {entry.Usage}";
+        return $"  {command} - {entry.Description}";
+    }
+
     private static string FormatParsedOptions(ParsedBlensCommand parsed)
     {
         return parsed.CaptureOptions?.ToString()
@@ -327,6 +344,12 @@ internal sealed class CommandRouter
     {
         PluginServices.Log.Information("Command {CommandId} printing help.", commandId);
         PluginServices.ChatGui.Print(HelpText);
+    }
+
+    private void OpenMainUi(long commandId)
+    {
+        PluginServices.Log.Information("Command {CommandId} opening main UI.", commandId);
+        this.openMainUi();
     }
 
     private async Task RunStatusCommandAsync(long commandId)

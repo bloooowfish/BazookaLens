@@ -2,6 +2,7 @@ namespace BazookaLens.Commands;
 
 internal enum BlensCommand
 {
+    OpenUi,
     Help,
     Status,
     ReShadeStatus,
