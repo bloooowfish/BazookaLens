@@ -137,10 +137,11 @@ internal sealed class BazookaLensWindow : Window, IDisposable
             CustomScaleInputLength,
             ImGuiInputTextFlags.EnterReturnsTrue);
         var edited = ImGui.IsItemEdited();
+        var commitDraft = submitted || ImGui.IsItemDeactivatedAfterEdit();
         textInputActive |= ImGui.IsItemActive();
         if (edited)
             this.ValidateScaleDraft();
-        if (submitted)
+        if (commitDraft)
             this.ApplyScaleDraft();
 
         ImGui.SameLine();

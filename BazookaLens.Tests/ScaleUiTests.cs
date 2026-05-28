@@ -23,8 +23,18 @@ public sealed class ScaleUiTests
         var source = ReadMainWindowSource();
 
         Assert.Contains("ImGuiInputTextFlags.EnterReturnsTrue", source, StringComparison.Ordinal);
-        Assert.Contains("if (submitted)", source, StringComparison.Ordinal);
+        Assert.Contains("var commitDraft = submitted ||", source, StringComparison.Ordinal);
         Assert.Contains("this.ApplyScaleDraft();", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void CustomScaleInputCommitsWhenFocusLeavesAfterEdit()
+    {
+        var source = ReadMainWindowSource();
+
+        Assert.Contains("ImGui.IsItemDeactivatedAfterEdit()", source, StringComparison.Ordinal);
+        Assert.Contains("var commitDraft = submitted || ImGui.IsItemDeactivatedAfterEdit();", source, StringComparison.Ordinal);
+        Assert.Contains("if (commitDraft)", source, StringComparison.Ordinal);
     }
 
     [Fact]
