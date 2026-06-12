@@ -3,8 +3,10 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $releaseConfig = Join-Path $repoRoot 'tools\release.config.psd1'
 $releaseTools = Join-Path $repoRoot 'tools\release-tools'
+$releaseLauncher = Join-Path $repoRoot 'tools\Invoke-BfRelease.ps1'
 $releaseWorkflow = Join-Path $repoRoot '.github\workflows\release.yml'
 $readme = Join-Path $repoRoot 'README.md'
+$gitmodules = Join-Path $repoRoot '.gitmodules'
 
 function Assert-Equal {
     param(
@@ -42,7 +44,7 @@ function Assert-NotMatch {
     }
 }
 
-foreach ($path in @($releaseConfig, $releaseTools, $releaseWorkflow, $readme)) {
+foreach ($path in @($releaseConfig, $releaseLauncher, $releaseWorkflow, $readme)) {
     if (-not (Test-Path $path)) {
         throw "Missing release policy path: $path"
     }
@@ -68,15 +70,33 @@ $workflowText = Get-Content -Raw $releaseWorkflow
 Assert-Match -Actual $workflowText -Pattern 'workflow_dispatch' -Message 'Release workflow should be manually triggerable.'
 Assert-Match -Actual $workflowText -Pattern 'run-name: Release \$\{\{ inputs\.version \}\} \$\{\{ inputs\.correlation_id \}\}' -Message 'Release workflow should expose correlation ids in the run name.'
 Assert-Match -Actual $workflowText -Pattern 'fetch-depth:\s*0' -Message 'Release workflow should preserve full checkout history.'
-Assert-Match -Actual $workflowText -Pattern 'submodules:\s*true' -Message 'Release workflow should checkout shared release-tools submodule.'
 Assert-Match -Actual $workflowText -Pattern 'ref:\s*main' -Message 'Release workflow should check out main for release commits.'
+Assert-Match -Actual $workflowText -Pattern 'repository:\s*bloooowfish/PluginReleaseTools' -Message 'Release workflow should fetch the central release tools at runtime.'
+Assert-Match -Actual $workflowText -Pattern 'path:\s*\.release-tools' -Message 'Release workflow should place central release tools outside the pinned submodule path.'
+Assert-Match -Actual $workflowText -Pattern 'persist-credentials:\s*false' -Message 'Release workflow should not persist repository write credentials into the release-tools checkout.'
 Assert-Match -Actual $workflowText -Pattern 'goatcorp\.github\.io/dalamud-distrib/stg/latest\.zip' -Message 'Release workflow should install Dalamud dev files on the runner.'
-Assert-Match -Actual $workflowText -Pattern 'tools\\release-tools\\Build-GitHubRelease\.ps1' -Message 'Release workflow should delegate build and publish work to shared release tools.'
+Assert-Match -Actual $workflowText -Pattern '\.release-tools\\Build-GitHubRelease\.ps1' -Message 'Release workflow should delegate build and publish work to the central release tools checkout.'
 Assert-Match -Actual $workflowText -Pattern 'tools\\release\.config\.psd1' -Message 'Release workflow should pass the repo release config.'
 Assert-NotMatch -Actual $workflowText -Pattern '-File\s+tools\\Build-GitHubRelease\.ps1' -Message 'Release workflow should not call the old repo-local build script.'
+Assert-NotMatch -Actual $workflowText -Pattern 'submodules:\s*true' -Message 'Release workflow should not pin release tooling through the plugin repository submodule SHA.'
+Assert-NotMatch -Actual $workflowText -Pattern 'tools\\release-tools\\Build-GitHubRelease\.ps1' -Message 'Release workflow should not execute the pinned submodule copy of release tools.'
 Assert-NotMatch -Actual $workflowText -Pattern 'MASTER_REPO_DISPATCH_TOKEN' -Message 'Release workflow should not require cross-repository dispatch secrets.'
 Assert-NotMatch -Actual $workflowText -Pattern 'repos/bloooowfish/MyPluginMaster/dispatches' -Message 'Release workflow should not notify MyPluginMaster directly.'
 Assert-NotMatch -Actual $workflowText -Pattern 'event_type=plugin-release' -Message 'Release workflow should not use repository_dispatch events.'
+
+$launcherText = Get-Content -Raw $releaseLauncher
+Assert-Match -Actual $launcherText -Pattern 'bloooowfish/PluginReleaseTools' -Message 'Local release launcher should fetch the central release tools repository.'
+Assert-Match -Actual $launcherText -Pattern 'BF_RELEASE_TOOLS_PATH' -Message 'Local release launcher should allow overriding the central tools checkout path.'
+Assert-Match -Actual $launcherText -Pattern 'remote\.origin\.url' -Message 'Local release launcher should verify the cached central tools remote.'
+Assert-Match -Actual $launcherText -Pattern 'status'',\s*''--porcelain' -Message 'Local release launcher should reject dirty central tools checkouts before execution.'
+Assert-Match -Actual $launcherText -Pattern 'Invoke-BfRelease\.ps1' -Message 'Local release launcher should delegate to PluginReleaseTools Invoke-BfRelease.ps1.'
+Assert-Match -Actual $launcherText -Pattern 'tools\\release\.config\.psd1' -Message 'Local release launcher should default to this repository release config.'
+Assert-NotMatch -Actual $launcherText -Pattern 'tools\\release-tools' -Message 'Local release launcher should not call the pinned release-tools submodule.'
+
+if (Test-Path $gitmodules) {
+    $gitmodulesText = Get-Content -Raw $gitmodules
+    Assert-NotMatch -Actual $gitmodulesText -Pattern 'tools/release-tools|PluginReleaseTools' -Message 'Plugin repository should not keep release-tools as a git submodule.'
+}
 
 Assert-Equal -Actual (Test-Path (Join-Path $repoRoot 'repo.json')) -Expected $false -Message 'Plugin repository should not keep a standalone repo.json; MyPluginMaster owns the custom repository manifest.'
 

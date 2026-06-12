@@ -1,3 +1,0 @@
-[submodule "tools/release-tools"]
-	path = tools/release-tools
-	url = ../PluginReleaseTools.git
